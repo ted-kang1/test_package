@@ -1,3 +1,4 @@
+library(rio)
 library(shiny)
 library(bslib)
 library(dplyr)
@@ -78,24 +79,29 @@ ytd_df <- ucr_ytd_prev %>%
            YOY_ytd_percent_change)
 
 
-a <- merge(test_year_spread, ytd_df, by = "id")
-combined_df <- a[-c(9, 3)]
+combined_df <- merge(test_year_spread, ytd_df, by = "id")[-c(9, 3)]
 combined_df <- combined_df[order(combined_df$place_name, combined_df$year),]
 long_df <- tidyr::pivot_longer(combined_df, c("fatal", "murder", "nonfatal", "total"))
 
-####################################################### ytd
+#######################################################
 
+download_url <- "C:/Users/tedka/Dropbox (Princeton)/VIP (Data) - Violence and Inequality Project/AV_Website/_shootings/OUTPUT/data_checks/city_checks_2023-06-09.xlsx"
+city_checks <- rio::import_list(download_url)
+use_ytd <- city_checks[["ytd_changes"]]
+df_list <- c(long_df, use_ytd)
+
+#######################################################
 
 ui <- page_sidebar(
     theme = bs_theme(bootswatch = "minty"),
     sidebar = sidebar(
         # varSelectInput("xvar", "X variable", c("year"), selected = "year"),
         pickerInput("yvar", "Y variable", choices = c("fatal", "murder", "nonfatal", "total"), selected = "fatal", options =list("actions-box" = TRUE), multiple = T),
-        selectInput("type", "Metric", choices = list("Year to Year", "Year to Date"), selected = "Year to Year"),
+        selectInput("type", "Metric", choices = df_list),
+        # selectInput("type", "Metric", choices = list("Year to Year", "Year to Date"), selected = "Year to Year"),
         pickerInput(
             "placename", "Filter by City",
             choices = unique(combined_df$place_name), 
-            selected = "Chicago city",
             multiple = TRUE
         ),
         hr(), # Add a horizontal rule
@@ -105,10 +111,15 @@ ui <- page_sidebar(
 )
 
 server <- function(input, output, session) {
+    df <- reactive({
+        req(input$type)
+        get(input$type)
+    })
+    
     subsetted <- reactive({
         req(input$placename)
-        if (input$outliers) {
-            long_df %>% filter(place_name %in% input$placename) %>%
+        if (input$outliers & df == long_df) {
+            df %>% filter(place_name %in% input$placename) %>%
                 filter((murder/nonfatal > 2) | (fatal/nonfatal > 2), (murder > 10) | (fatal > 10))
         } else {
             long_df |> filter(place_name %in% input$placename) %>% filter(name %in% input$yvar)
@@ -119,8 +130,8 @@ server <- function(input, output, session) {
         if (input$type == "Year to Year") {
             p <- ggplot(subsetted(), aes(year, y = value, color = name, group = name)) + list(
                 theme(legend.position = "bottom"),
-                aes(color = place_name),
-                geom_line(linewidth = 2)
+                geom_line(linewidth = 1),
+                facet_wrap(~place_name)
             ) 
         } else {
             p <- ggplot(subsetted(), aes(x = !!input$xvar, y = !!input$yvar)) + list(
