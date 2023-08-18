@@ -146,3 +146,10 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
+# sort(list.files(<the folder>), decreasing=T, pattern=“.csv”)[1]
+
+# /Users/alisabethmarsteller/Dropbox/VIP (Data) - Violence and Inequality Project/AV_Website/_murders/01_CHECK_FILE_UPDATES/refresh_UCR/output/ucr1990_2022.csv
+
+# abs(YOY_ytd_percent_change) >= 50, ytd_2022 > 10 & ytd_2023 > 10
